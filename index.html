@@ -124,10 +124,11 @@
             const stepX = (endX - startX) / 6; 
             const stepY = (endY - startY) / 6; 
 
-            // TOP DÜZENLEMESİ: Boyut 2.5 katına çıkarıldı (9'dan 22.5'e) ve rengi kırmızı (#e74c3c) yapıldı
+            // TOP DÜZENLEMESİ: friction ve frictionStatic 0 yapıldı (Yapışma engellendi)
             ball = Bodies.circle(startX + stepX * 2.5, startY + stepY * 0.4, 22.5 * scale, {
                 restitution: 0.05,     
-                friction: 0.15,         
+                friction: 0,           // Yüzey sürtünmesi sıfırlandı
+                frictionStatic: 0,     // Durğan sürtünme sıfırlandı
                 frictionAir: 0.12,     
                 density: 0.001,
                 render: { fillStyle: '#e74c3c' }
@@ -139,7 +140,13 @@
                 const cy = (y1 + y2) / 2;
                 const w = Math.abs(x2 - x1) === 0 ? wThickness : Math.abs(x2 - x1) + wThickness;
                 const h = Math.abs(y2 - y1) === 0 ? wThickness : Math.abs(y2 - y1) + wThickness;
-                return Bodies.rectangle(cx, cy, w, h, { isStatic: true, render: { fillStyle: wallColor } });
+                // DUVAR DÜZENLEMESİ: Duvarların da topu tutmaması için sürtünmeleri sıfırlandı
+                return Bodies.rectangle(cx, cy, w, h, { 
+                    isStatic: true, 
+                    friction: 0,
+                    frictionStatic: 0,
+                    render: { fillStyle: wallColor } 
+                });
             }
 
             const mazeWalls = [
@@ -211,7 +218,8 @@
             let factorX = calculateStepFactor(relativeX);
             let factorY = calculateStepFactor(relativeY);
 
-            const maxGravity = 0.55; 
+            // Hız 2 katına çıkarıldı: 0.55'ten 1.10'a yükseltildi
+            const maxGravity = 1.10; 
             engine.gravity.x = factorX * maxGravity;
             engine.gravity.y = factorY * maxGravity;
         }
