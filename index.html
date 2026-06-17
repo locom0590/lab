@@ -76,17 +76,16 @@
 
         let engine, render, runner;
         let ball;
-        // Görselin en-boy oranına sadık kalmak adına baz ölçüleri güncelledik (3:4 oranı)
         const baseWidth = 600;  
         const baseHeight = 800; 
 
         let biasX = null;
         let biasY = null;
-        const maxActiveAngle = 10; 
+        const maxActiveAngle = 10; // Küçük eğim hassasiyeti için 10 derece sınırı sabit
 
         function initGame() {
             engine = Engine.create({
-                gravity: { x: 0, y: 0, scale: 0.001 } 
+                gravity: { x: 0, y: 0, scale: 0.0008 } // Akışkanlık için yerçekimi ölçeği hafifletildi
             });
 
             const scale = Math.min(window.innerWidth / baseWidth, window.innerHeight / baseHeight) * 0.95;
@@ -115,30 +114,29 @@
             const world = engine.world;
             Composite.clear(world); 
 
-            // Topu tam olarak üstteki giriş boşluğunun hizasında (X: 250) başlatıyoruz
-            ball = Bodies.circle(250 * scale, 35 * scale, 10 * scale, {
-                restitution: 0.1,      
-                friction: 0.1,         
-                frictionAir: 0.07,     
-                density: 0.001,
-                render: { fillStyle: '#7f8c8d' }
-            });
-            Composite.add(world, ball);
-
             const wallColor = '#000000';
-            const wThickness = 12 * scale; // Çizgi kalınlığı
+            const wThickness = 12 * scale; 
 
-            // Labirentin ana sınır köşe koordinatları (Orijinal resimdeki iç çerçevenin başladığı yerler)
+            // Labirent koordinat sınırları
             const startX = 100 * scale;
             const endX = 520 * scale;
             const startY = 170 * scale;
             const endY = 610 * scale;
             
-            // Grid birim mesafeleri
-            const stepX = (endX - startX) / 6; // ~70px
-            const stepY = (endY - startY) / 6; // ~73px
+            const stepX = (endX - startX) / 6; 
+            const stepY = (endY - startY) / 6; 
 
-            // Dikdörtgen duvar bloklarını merkez noktası formülüne göre oluşturan yardımcı fonksiyon
+            // TOP BAŞLANGIÇ NOKTASI: Labirentin giriş kapısının hemen altı (İç kısım başlangıcı)
+            // X: Giriş koridoru hizası, Y: Üst dış duvarın hemen altı (Labirentin içi)
+            ball = Bodies.circle(startX + stepX * 2.5, startY + stepY * 0.4, 9 * scale, {
+                restitution: 0.05,     // Duvarlardan sekme minimuma indirildi     
+                friction: 0.15,         
+                frictionAir: 0.12,     // HAVA DİRENCİ ARTIRILDI: Topun aşırı hızlanmasını önler, yağ gibi kaymasını sağlar
+                density: 0.001,
+                render: { fillStyle: '#7f8c8d' }
+            });
+            Composite.add(world, ball);
+
             function createWall(x1, y1, x2, y2) {
                 const cx = (x1 + x2) / 2;
                 const cy = (y1 + y2) / 2;
@@ -150,8 +148,8 @@
             const mazeWalls = [
                 // === DIŞ DUVARLAR VE GİRİŞ/ÇIKIŞ BOŞLUKLARI ===
                 createWall(startX, startY, startX + stepX * 2, startY), // Üst Sol Sol
-                createWall(startX + stepX * 3, startY, endX, startY),   // Üst Sağ (Giriş boşluğu bırakıldı)
-                createWall(startX, endY, startY + stepX * 1.7, endY),   // Alt Sol (Çıkış boşluğu bırakıldı)
+                createWall(startX + stepX * 3, startY, endX, startY),   // Üst Sağ (Giriş boşluğu açık)
+                createWall(startX, endY, startY + stepX * 1.7, endY),   // Alt Sol (Çıkış boşluğu açık)
                 createWall(startX + stepX * 2.7, endY, endX, endY),     // Alt Sağ
                 createWall(startX, startY, startX, endY),               // Sol Dış Kenar
                 createWall(endX, startY, endX, endY),                   // Sağ Dış Kenar
@@ -201,7 +199,8 @@
             if (Math.abs(relativeX) < 0.5) factorX = 0;
             if (Math.abs(relativeY) < 0.5) factorY = 0;
 
-            const maxGravity = 0.75; 
+            // Yavaş ve yumuşak akış için maksimum ivme çarpanı düşürüldü
+            const maxGravity = 0.55; 
             engine.gravity.x = factorX * maxGravity;
             engine.gravity.y = factorY * maxGravity;
         }
