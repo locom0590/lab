@@ -80,8 +80,9 @@
         const baseHeight = 800; 
 
         function initGame() {
+            // Fizik motorunun yerçekimi ölçeğini de yumuşattık
             engine = Engine.create({
-                gravity: { x: 0, y: 0, scale: 0.001 } 
+                gravity: { x: 0, y: 0, scale: 0.0008 } 
             });
 
             const scale = Math.min(window.innerWidth / baseWidth, window.innerHeight / baseHeight) * 0.95;
@@ -110,10 +111,12 @@
             const world = engine.world;
             Composite.clear(world); 
 
-            // Topu üst orta kısımdan başlatıyoruz
+            // Topun fiziksel özelliklerini yumuşattık
             ball = Bodies.circle(width / 2, 40 * scale, 12 * scale, {
-                restitution: 0.3, 
-                friction: 0.05,
+                restitution: 0.1,      // Duvarlara çarpınca deli gibi sekmesin, tok bir şekilde çarpsın
+                friction: 0.1,         // Yüzey sürtünmesi
+                frictionAir: 0.06,     // HAVA DİRENCİ (Topun ani hızlanmasını engeller, yağımsı/akışkan bir hareket sağlar)
+                density: 0.001,
                 render: { fillStyle: '#7f8c8d' }
             });
             Composite.add(world, ball);
@@ -135,19 +138,20 @@
 
             if (beta === null || gamma === null) return;
 
-            let targetX = gamma;      // Sağ-Sol eğim
-            let targetY = beta - 45;  // Ön-Arka eğim (45 dereceyi nötr kabul ediyoruz)
+            let targetX = gamma;      
+            let targetY = beta - 45;  
 
-            const sensitivity = 0.03; // Hassasiyet çarpanı
-            engine.gravity.x = Math.max(Math.min(targetX * sensitivity, 2), -2);
-            engine.gravity.y = Math.max(Math.min(targetY * sensitivity, 2), -2);
+            // Hassasiyeti artırdık (0.03'ten 0.08'e çıktı), limitleri daralttık
+            const sensitivity = 0.08; 
+            const maxGravity = 1.2; // Maksimum yerçekimi gücünü sınırlayarak aşırı fırlamayı önledik
+
+            engine.gravity.x = Math.max(Math.min(targetX * sensitivity, maxGravity), -maxGravity);
+            engine.gravity.y = Math.max(Math.min(targetY * sensitivity, maxGravity), -maxGravity);
         }
 
         document.getElementById('start-btn').addEventListener('click', function() {
-            // Butona basıldığında overlay'i gizle
             document.getElementById('overlay').style.display = 'none';
             
-            // Jiroskop izni talep et (iOS için)
             if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
                 DeviceOrientationEvent.requestPermission()
                     .then(permissionState => {
@@ -156,7 +160,7 @@
                             initGame();
                         } else {
                             alert('Jiroskop izni verilmedi.');
-                            initGame(); // İzin verilmezse masaüstünde test için yine de başlat
+                            initGame(); 
                         }
                     })
                     .catch(err => {
@@ -164,7 +168,6 @@
                         initGame();
                     });
             } else {
-                // Android veya Masaüstü tarayıcılar
                 window.addEventListener('deviceorientation', handleOrientation);
                 initGame();
             }
