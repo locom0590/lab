@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Jiroskopik Labirent Oyunu</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/matter-js/0.19.0/matter.min.js"></script>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+        body {
+            background-color: #1a1a1a;
+            font-family: sans-serif;
+            overflow: hidden;
+            width: 100vw;
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        #game-container {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        canvas {
+            background-color: #ffffff;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+            max-width: 100%;
+            max-height: 100%;
+        }
+        /* iOS/Safari ve modern tarayıcılar için Jiroskop İzin Ekranı */
+        #overlay {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0, 0, 0, 0.85);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 10;
+            color: white;
+            text-align: center;
+            padding: 20px;
+        }
+        .btn {
+            background: #4CAF50;
+            color: white;
+            border: none;
+            padding: 15px 35px;
+            font-size: 18px;
+            font-weight: bold;
+            border-radius: 30px;
+            cursor: pointer;
+            margin-top: 20px;
+            box-shadow: 0 4px 15px rgba(76, 175, 80, 0.4);
+            transition: transform 0.2s;
+        }
+        .btn:active {
+            transform: scale(0.95);
+        }
+    </style>
+</head>
+<body>
+
+    <div id="game-container">
+        <div id="#overlay" id="overlay">
+            <h2>Labirent Macerası</h2>
+            <p>Topu hareket ettirmek için telefonu bir tepsi gibi düz tutun ve aşağıdaki butona basın.</p>
+            <button class="btn" id="start-btn">OYUNA BAŞLA</button>
+        </div>
+    </div>
+
+    <script>
+        // Matter.js Modülleri
+        const { Engine, Render, Runner, Bodies, Composite, Vector } = Matter;
+
+        let engine, render, runner;
+        let ball;
+        const baseWidth = 600;  // Labirentin referans genişliği
+        const baseHeight = 800; // Labirentin referans yüksekliği
+
+        // 1. Fizik Dünyasını ve Canvas'ı Başlatma
+        function initGame() {
+            engine = Engine.create({
+                gravity: { x: 0, y: 0, scale: 0.001 } // Başlangıçta yerçekimi sıfır
+            });
+
+            // Ekran boyutuna göre dinamik ölçekleme yapıyoruz
+            const scale = Math.min(window.innerWidth / baseWidth, window.innerHeight / baseHeight) * 0.95;
+            const canvasWidth = baseWidth * scale;
+            const canvasHeight = baseHeight * scale;
+
+            render = Render.create({
+                element: document.getElementById('game-container'),
+                engine: engine,
+                options: {
+                    width: canvasWidth,
+                    height: canvasHeight,
+                    wireframes: false, // Renkli çizimler için false
+                    background: '#ffffff'
+                }
+            });
+
+            Render.run(render);
+            runner = Runner.create();
+            Runner.run(runner, engine);
+
+            createMaze(canvasWidth, canvasHeight, scale);
+            
+            // Ekran yeniden boyutlandığında canvas'ı korumak için dinleyici
+            window.addEventListener('resize', handleResize);
+        }
+
+        // 2. Labirent Duvarları ve Topun Oluşturulması
+        function createMaze(width, height, scale) {
+            const world = engine.world;
+            Composite.clear(world); // Dünyayı temizle
+
+            // Metal Top (Giriş noktasına yerleştirilecek, şimdilik geçici koordinat)
+            ball = Bodies.circle(width / 2, 50 * scale, 12 * scale, {
+                restitution: 0.3, // Hafif sekme hissi
+                friction: 0.05,
+                render: {
+                    fillStyle: '#7f8c8d', // Metalik gri bilye rengi
+                    strokeStyle: '#34495e',
+                    lineWidth: 2
+                }
+            });
+            Composite.add(world, ball);
+
+            // TODO: Sizin labirentinizin duvar koordinatları buraya eklenecek
+            // Örnek sınır duvarları (Dış Çerçeve):
+            const thickness = 20 * scale;
+            const walls = [
+                // Sol dış duvar
+                Bodies.rectangle(thickness/2, height/2, thickness, height, { isStatic: true, render: { fillStyle: '#000000' } }),
+                // Sağ dış duvar
+                Bodies.rectangle(width - thickness/2, height/2, thickness, height, { isStatic: true, render: { fillStyle: '#000000' } }),
+                // Üst dış duvar (Giriş boşluğu bırakılacak şekilde planlanacak)
+                Bodies.rectangle(width/2, thickness/2, width, thickness, { isStatic: true, render: { fillStyle: '#000000' } }),
+                // Alt dış duvar (Çıkış boşluğu bırakılacak şekilde planlanacak)
+                Bodies.rectangle(width/2, height - thickness/2, width, thickness, { isStatic: true, render: { fillStyle: '#000000' } })
+            ];
+
+            Composite.add(world, walls);
+        }
+
+        // 3. Cihaz Hareketlerini Yakalama (Jiroskop Kontrolü)
+        function handleOrientation(event) {
+            // beta: Ön-arka eğim (-180 ile 180 arası) -> Cihaz düzken ~0
+            // gamma: Sağ-sol eğim (-90 ile 90 arası) -> Cihaz düzken ~0
+            let beta = event.beta;
+            let gamma = event.gamma;
+
+            if (beta === null || gamma === null) return;
+
+            // Telefonu düz bir tepsi gibi tuttuğumuzu varsayıyoruz (Beta ~ 45-60 derece arası bakış açısı)
+            // Konforlu bir tutuş için referans açısı kalibre edilebilir
+            let targetX = 0;
+            let targetY = 0;
+
+            // Ekran yönü kontrolü (Dikey / Yatay tutuş hassasiyeti)
+            if (window.orientation === 90) {
+                targetX = -beta;
+                targetY = -gamma;
+            } else if (window.orientation === -90) {
+                targetX = beta;
+                targetY = gamma;
+            } else {
+                // Dikey (Portrait) Mod
+                targetX = gamma;
+                targetY = beta - 45; // 45 derece eğimi "sıfır/düz" kabul ediyoruz
+            }
+
+            // Fizik motorunun yerçekimi vektörünü güncelliyoruz (Hassasiyeti çarpanla ayarlayabiliriz)
+            const sensitivity = 0.05;
+            engine.gravity.x = Math.max(Math.min(targetX * sensitivity, 2), -2);
+            engine.gravity.y = Math.max(Math.min(targetY * sensitivity, 2), -2);
+        }
+
+        // 4. İzin Mekanizması ve Oyunu Başlatma
+        document.getElementById('start-btn').addEventListener('click', function() {
+            // iOS 13+ cihazlarda jiroskop erişimi için açık izin istenir
+            if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
+                DeviceOrientationEvent.requestPermission()
+                    .then(permissionState => {
+                        if (permissionState === 'granted') {
+                            window.addEventListener('deviceorientation', handleOrientation);
+                            startGameFlow();
+                        } else {
+                            alert('Jiroskop izni reddedildi. Oyun kontrol edilemez.');
+                        }
+                    })
+                    .catch(console.error);
+            } else {
+                // Android veya eski iOS cihazlar için doğrudan dinleyici ekliyoruz
+                window.addEventListener('deviceorientation', handleOrientation);
+                startGameFlow();
+            }
+        });
+
+        function startGameFlow() {
+            document.getElementById('overlay').style.display = 'none';
+            initGame();
+        }
+
+        function handleResize() {
+            if (!render) return;
+            const scale = Math.min(window.innerWidth / baseWidth, window.innerHeight / baseHeight) * 0.95;
+            render.canvas.width = baseWidth * scale;
+            render.canvas.height = baseHeight * scale;
+            createMaze(render.canvas.width, render.canvas.height, scale);
+        }
+    </script>
+</body>
+</html>
