@@ -66,7 +66,7 @@
     <div id="game-container">
         <div id="overlay">
             <h2>Labirent Macerası</h2>
-            <p>Telefonunuzu rahat ettiğiniz bir açıda (tepsi gibi) tutun ve ardından butona basın.</p>
+            <p>Telefonunuzu rahat ettiğiniz bir açıda (tepsi gibi) tutun và ardından butona basın.</p>
             <button class="btn" id="start-btn">OYUNA BAŞLA</button>
         </div>
     </div>
@@ -79,14 +79,13 @@
         const baseWidth = 600;  
         const baseHeight = 800; 
 
-        // Kalibrasyon değişkenleri
         let biasX = null;
         let biasY = null;
-        const maxActiveAngle = 10; // 10 derecelik çalışma alanı sınırımız
+        const maxActiveAngle = 10; 
 
         function initGame() {
             engine = Engine.create({
-                gravity: { x: 0, y: 0, scale: 0.001 } // Temel ölçeklendirme standartta kaldı
+                gravity: { x: 0, y: 0, scale: 0.001 } 
             });
 
             const scale = Math.min(window.innerWidth / baseWidth, window.innerHeight / baseHeight) * 0.95;
@@ -115,17 +114,15 @@
             const world = engine.world;
             Composite.clear(world); 
 
-            // Topun yumuşak akışı için hava direnci (frictionAir) yine yüksek tutuldu
             ball = Bodies.circle(width / 2, 40 * scale, 12 * scale, {
                 restitution: 0.1,      
                 friction: 0.1,         
-                frictionAir: 0.07,     // Akışkan/yağ gibi süzülme hissi
+                frictionAir: 0.07,     
                 density: 0.001,
                 render: { fillStyle: '#7f8c8d' }
             });
             Composite.add(world, ball);
 
-            // Geçici Sınır Duvarları
             const thickness = 20 * scale;
             const walls = [
                 Bodies.rectangle(thickness/2, height/2, thickness, height, { isStatic: true, render: { fillStyle: '#000000' } }),
@@ -142,32 +139,26 @@
 
             if (beta === null || gamma === null) return;
 
-            // İlk veri geldiğinde (yani butona basıldığı an) cihazın açısını sıfır noktası (kalibrasyon) yapıyoruz
             if (biasX === null || biasY === null) {
                 biasX = gamma;
                 biasY = beta;
                 return;
             }
 
-            // Mevcut açıdan kalibrasyon açısını çıkararak "göreceli" sapmayı buluyoruz
             let relativeX = gamma - biasX;
             let relativeY = beta - biasY;
 
-            // 10 derece sınırına göre oranlama yapıyoruz (-1 ile 1 arasında bir çarpan üretiyoruz)
-            // Bu sayede 10 derece eğildiğinde top tam güce ulaşıyor, üstündeki açılar hareketi bozmuyor
             let factorX = relativeX / maxActiveAngle;
             let factorY = relativeY / maxActiveAngle;
 
-            // Sınırları -1 ve 1 ile kilitliyoruz (Aşırı eğmelerde topun sapıtmasını engeller)
             factorX = Math.max(Math.min(factorX, 1), -1);
             factorY = Math.max(Math.min(factorY, 1), -1);
 
-            // Ölü bölge (Deadzone): Çok ufak el titremeleri (0.5 dereceden küçük hareketler) topu oynatmasın
             if (Math.abs(relativeX) < 0.5) factorX = 0;
             if (Math.abs(relativeY) < 0.5) factorY = 0;
 
-            // Maksimum yerçekimi limitimiz (Dengeli ve yumuşak bir ivmelenme için)
-            const maxGravity = 1.5; 
+            // Hız %50 düşürüldü: maxGravity değeri 1.5'ten 0.75'e çekildi
+            const maxGravity = 0.75; 
             engine.gravity.x = factorX * maxGravity;
             engine.gravity.y = factorY * maxGravity;
         }
@@ -175,7 +166,6 @@
         document.getElementById('start-btn').addEventListener('click', function() {
             document.getElementById('overlay').style.display = 'none';
             
-            // Her butona basıldığında kalibrasyonu sıfırla ki güncel duruşu baz alsın
             biasX = null;
             biasY = null;
 
