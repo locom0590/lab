@@ -66,7 +66,7 @@
     <div id="game-container">
         <div id="overlay">
             <h2>Labirent Macerası</h2>
-            <p>Topu hareket ettirmek için telefonu bir tepsi gibi düz tutun ve aşağıdaki butona basın.</p>
+            <p>Telefonunuzu rahat ettiğiniz bir açıda (tepsi gibi) tutun ve ardından butona basın.</p>
             <button class="btn" id="start-btn">OYUNA BAŞLA</button>
         </div>
     </div>
@@ -79,10 +79,14 @@
         const baseWidth = 600;  
         const baseHeight = 800; 
 
+        // Kalibrasyon değişkenleri
+        let biasX = null;
+        let biasY = null;
+        const maxActiveAngle = 10; // 10 derecelik çalışma alanı sınırımız
+
         function initGame() {
-            // Fizik motorunun yerçekimi ölçeğini de yumuşattık
             engine = Engine.create({
-                gravity: { x: 0, y: 0, scale: 0.0008 } 
+                gravity: { x: 0, y: 0, scale: 0.001 } // Temel ölçeklendirme standartta kaldı
             });
 
             const scale = Math.min(window.innerWidth / baseWidth, window.innerHeight / baseHeight) * 0.95;
@@ -111,11 +115,11 @@
             const world = engine.world;
             Composite.clear(world); 
 
-            // Topun fiziksel özelliklerini yumuşattık
+            // Topun yumuşak akışı için hava direnci (frictionAir) yine yüksek tutuldu
             ball = Bodies.circle(width / 2, 40 * scale, 12 * scale, {
-                restitution: 0.1,      // Duvarlara çarpınca deli gibi sekmesin, tok bir şekilde çarpsın
-                friction: 0.1,         // Yüzey sürtünmesi
-                frictionAir: 0.06,     // HAVA DİRENCİ (Topun ani hızlanmasını engeller, yağımsı/akışkan bir hareket sağlar)
+                restitution: 0.1,      
+                friction: 0.1,         
+                frictionAir: 0.07,     // Akışkan/yağ gibi süzülme hissi
                 density: 0.001,
                 render: { fillStyle: '#7f8c8d' }
             });
@@ -138,20 +142,43 @@
 
             if (beta === null || gamma === null) return;
 
-            let targetX = gamma;      
-            let targetY = beta - 45;  
+            // İlk veri geldiğinde (yani butona basıldığı an) cihazın açısını sıfır noktası (kalibrasyon) yapıyoruz
+            if (biasX === null || biasY === null) {
+                biasX = gamma;
+                biasY = beta;
+                return;
+            }
 
-            // Hassasiyeti artırdık (0.03'ten 0.08'e çıktı), limitleri daralttık
-            const sensitivity = 0.08; 
-            const maxGravity = 1.2; // Maksimum yerçekimi gücünü sınırlayarak aşırı fırlamayı önledik
+            // Mevcut açıdan kalibrasyon açısını çıkararak "göreceli" sapmayı buluyoruz
+            let relativeX = gamma - biasX;
+            let relativeY = beta - biasY;
 
-            engine.gravity.x = Math.max(Math.min(targetX * sensitivity, maxGravity), -maxGravity);
-            engine.gravity.y = Math.max(Math.min(targetY * sensitivity, maxGravity), -maxGravity);
+            // 10 derece sınırına göre oranlama yapıyoruz (-1 ile 1 arasında bir çarpan üretiyoruz)
+            // Bu sayede 10 derece eğildiğinde top tam güce ulaşıyor, üstündeki açılar hareketi bozmuyor
+            let factorX = relativeX / maxActiveAngle;
+            let factorY = relativeY / maxActiveAngle;
+
+            // Sınırları -1 ve 1 ile kilitliyoruz (Aşırı eğmelerde topun sapıtmasını engeller)
+            factorX = Math.max(Math.min(factorX, 1), -1);
+            factorY = Math.max(Math.min(factorY, 1), -1);
+
+            // Ölü bölge (Deadzone): Çok ufak el titremeleri (0.5 dereceden küçük hareketler) topu oynatmasın
+            if (Math.abs(relativeX) < 0.5) factorX = 0;
+            if (Math.abs(relativeY) < 0.5) factorY = 0;
+
+            // Maksimum yerçekimi limitimiz (Dengeli ve yumuşak bir ivmelenme için)
+            const maxGravity = 1.5; 
+            engine.gravity.x = factorX * maxGravity;
+            engine.gravity.y = factorY * maxGravity;
         }
 
         document.getElementById('start-btn').addEventListener('click', function() {
             document.getElementById('overlay').style.display = 'none';
             
+            // Her butona basıldığında kalibrasyonu sıfırla ki güncel duruşu baz alsın
+            biasX = null;
+            biasY = null;
+
             if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
                 DeviceOrientationEvent.requestPermission()
                     .then(permissionState => {
