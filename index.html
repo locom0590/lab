@@ -66,7 +66,7 @@
     <div id="game-container">
         <div id="overlay">
             <h2>Labirent Macerası</h2>
-            <p>Telefonunuzu rahat ettiğiniz bir açıda (tepsi gibi) tutun và ardından butona basın.</p>
+            <p>Telefonunuzu rahat ettiğiniz bir açıda (tepsi gibi) tutun ve ardından butona basın.</p>
             <button class="btn" id="start-btn">OYUNA BAŞLA</button>
         </div>
     </div>
@@ -76,6 +76,7 @@
 
         let engine, render, runner;
         let ball;
+        // Görselin en-boy oranına sadık kalmak adına baz ölçüleri güncelledik (3:4 oranı)
         const baseWidth = 600;  
         const baseHeight = 800; 
 
@@ -114,7 +115,8 @@
             const world = engine.world;
             Composite.clear(world); 
 
-            ball = Bodies.circle(width / 2, 40 * scale, 12 * scale, {
+            // Topu tam olarak üstteki giriş boşluğunun hizasında (X: 250) başlatıyoruz
+            ball = Bodies.circle(250 * scale, 35 * scale, 10 * scale, {
                 restitution: 0.1,      
                 friction: 0.1,         
                 frictionAir: 0.07,     
@@ -123,14 +125,56 @@
             });
             Composite.add(world, ball);
 
-            const thickness = 20 * scale;
-            const walls = [
-                Bodies.rectangle(thickness/2, height/2, thickness, height, { isStatic: true, render: { fillStyle: '#000000' } }),
-                Bodies.rectangle(width - thickness/2, height/2, thickness, height, { isStatic: true, render: { fillStyle: '#000000' } }),
-                Bodies.rectangle(width/2, thickness/2, width, thickness, { isStatic: true, render: { fillStyle: '#000000' } }),
-                Bodies.rectangle(width/2, height - thickness/2, width, thickness, { isStatic: true, render: { fillStyle: '#000000' } })
+            const wallColor = '#000000';
+            const wThickness = 12 * scale; // Çizgi kalınlığı
+
+            // Labirentin ana sınır köşe koordinatları (Orijinal resimdeki iç çerçevenin başladığı yerler)
+            const startX = 100 * scale;
+            const endX = 520 * scale;
+            const startY = 170 * scale;
+            const endY = 610 * scale;
+            
+            // Grid birim mesafeleri
+            const stepX = (endX - startX) / 6; // ~70px
+            const stepY = (endY - startY) / 6; // ~73px
+
+            // Dikdörtgen duvar bloklarını merkez noktası formülüne göre oluşturan yardımcı fonksiyon
+            function createWall(x1, y1, x2, y2) {
+                const cx = (x1 + x2) / 2;
+                const cy = (y1 + y2) / 2;
+                const w = Math.abs(x2 - x1) === 0 ? wThickness : Math.abs(x2 - x1) + wThickness;
+                const h = Math.abs(y2 - y1) === 0 ? wThickness : Math.abs(y2 - y1) + wThickness;
+                return Bodies.rectangle(cx, cy, w, h, { isStatic: true, render: { fillStyle: wallColor } });
+            }
+
+            const mazeWalls = [
+                // === DIŞ DUVARLAR VE GİRİŞ/ÇIKIŞ BOŞLUKLARI ===
+                createWall(startX, startY, startX + stepX * 2, startY), // Üst Sol Sol
+                createWall(startX + stepX * 3, startY, endX, startY),   // Üst Sağ (Giriş boşluğu bırakıldı)
+                createWall(startX, endY, startY + stepX * 1.7, endY),   // Alt Sol (Çıkış boşluğu bırakıldı)
+                createWall(startX + stepX * 2.7, endY, endX, endY),     // Alt Sağ
+                createWall(startX, startY, startX, endY),               // Sol Dış Kenar
+                createWall(endX, startY, endX, endY),                   // Sağ Dış Kenar
+
+                // === İÇ DUVARLAR (YATAYLAR) ===
+                createWall(startX + stepX, startY + stepY, startX + stepX * 5, startY + stepY), 
+                createWall(startX, startY + stepY * 3, startX + stepX * 4, startY + stepY * 3),
+                createWall(startX + stepX * 5, startY + stepY * 3, endX, startY + stepY * 3),
+                createWall(startX + stepX, startY + stepY * 4, startX + stepX * 2, startY + stepY * 4),
+                createWall(startX + stepX * 3, startY + stepY * 4, startX + stepX * 5, startY + stepY * 4),
+                createWall(startX + stepX, startY + stepY * 5, endX, startY + stepY * 5),
+
+                // === İÇ DUVARLAR (DİKEYLER) ===
+                createWall(startX + stepX * 2, startY, startX + stepX * 2, startY + stepY * 1.3),
+                createWall(startX + stepX, startY + stepY, startX + stepX, startY + stepY * 2),
+                createWall(startX + stepX * 4, startY + stepY, startX + stepX * 4, startY + stepY * 3),
+                createWall(startX + stepX * 5, startY + stepY, startX + stepX * 5, startY + stepY * 2),
+                createWall(startX + stepX, startY + stepY * 4, startX + stepX, startY + stepY * 5),
+                createWall(startX + stepX * 2, startY + stepY * 4.9, startX + stepX * 2, endY),
+                createWall(startX + stepX * 3, startY + stepY * 4, startX + stepX * 3, startY + stepY * 5)
             ];
-            Composite.add(world, walls);
+
+            Composite.add(world, mazeWalls);
         }
 
         function handleOrientation(event) {
@@ -157,7 +201,6 @@
             if (Math.abs(relativeX) < 0.5) factorX = 0;
             if (Math.abs(relativeY) < 0.5) factorY = 0;
 
-            // Hız %50 düşürüldü: maxGravity değeri 1.5'ten 0.75'e çekildi
             const maxGravity = 0.75; 
             engine.gravity.x = factorX * maxGravity;
             engine.gravity.y = factorY * maxGravity;
